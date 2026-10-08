@@ -1,0 +1,56 @@
+---
+- name: Configure Code-Server
+  hosts: codeserver
+  become: yes
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install dependencies
+      apt:
+        name:
+          - curl
+          - nginx
+        state: present
+
+    - name: Download and install code-server
+      shell: |
+        curl -fsSL https://code-server.dev/install.sh | sh
+      args:
+        executable: /bin/bash
+
+    - name: Create code-server systemd config
+      template:
+        src: code-server.service.j2
+        dest: /lib/systemd/system/code-server.service
+        mode: '0644'
+
+    - name: Create nginx config
+      template:
+        src: code-server.conf.j2
+        dest: /etc/nginx/sites-available/code-server.conf
+        mode: '0644'
+
+    - name: Enable nginx site
+      file:
+        src: /etc/nginx/sites-available/code-server.conf
+        dest: /etc/nginx/sites-enabled/code-server.conf
+        state: link
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
+    - name: Restart nginx
+      systemd:
+        name: nginx
+        state: restarted
+        enabled: yes
+
+    - name: Start and enable code-server
+      systemd:
+        name: code-server
+        state: started
+        enabled: yes
